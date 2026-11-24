@@ -11,6 +11,7 @@
   "engines": { "node": ">=22.19" },
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
+    "lint": "npx --yes @biomejs/biome@1.9.4 lint apps packages scripts tests",
     "check": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "build": "tsc --noEmit && vite build apps/web",
