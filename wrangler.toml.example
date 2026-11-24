@@ -10,5 +10,6 @@ id = "00000000000000000000000000000000"
 
 [vars]
 PREVIEW_SCHEMA = "preview_pr_0"
+WEB_ORIGIN = "https://pr-0.ya-plouf.pages.dev"
 
 # SAFETY_SIGNING_KEY doit être ajouté avec `wrangler secret put`.

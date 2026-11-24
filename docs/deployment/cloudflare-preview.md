@@ -9,6 +9,7 @@ une API Hono sur Cloudflare Workers pour chaque pull request interne.
 - Un schéma `preview_pr_<numéro>` est créé dans ce projet pour chaque PR.
 - Hyperdrive expose la connexion PostgreSQL au Worker.
 - Le Worker fixe le `search_path` sur le schéma de la PR.
+- Le Worker n’autorise les appels navigateur que depuis l’URL Pages de la même PR.
 - Les migrations et les données de démonstration restent fictives.
 - Les PR provenant d’un fork n’utilisent aucun secret et ne sont pas déployées.
 
@@ -39,7 +40,10 @@ provenant d’un dépôt externe.
 
 Le workflow `.github/workflows/preview.yml` exécute les contrôles, crée le
 schéma PostgreSQL, déploie l’API et le frontend, puis publie les URLs dans la
-PR. Un nouveau commit réutilise le même schéma et met à jour les déploiements.
+PR. Le provisionnement enregistre chaque fichier de migration dans la table
+`schema_migration` du schéma concerné : un nouveau commit réutilise donc le
+même schéma sans rejouer les migrations déjà appliquées. Un nouveau commit
+réutilise le même schéma et met à jour les déploiements.
 
 À la fermeture de la PR, le workflow supprime le schéma correspondant. Les
 ressources Cloudflare sont nommées avec le numéro de PR afin de permettre une

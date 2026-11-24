@@ -3,7 +3,7 @@ import { createApi } from "./http.ts";
 import { authenticateWith, createSafetyService } from "./service.ts";
 
 type Hyperdrive = { connectionString: string };
-type Env = { HYPERDRIVE: Hyperdrive; SAFETY_SIGNING_KEY: string; PREVIEW_SCHEMA: string };
+type Env = { HYPERDRIVE: Hyperdrive; SAFETY_SIGNING_KEY: string; PREVIEW_SCHEMA: string; WEB_ORIGIN: string };
 
 async function digest(signingKey: string, data: unknown): Promise<string> {
   const encoded = new TextEncoder().encode(JSON.stringify(data));
@@ -26,7 +26,7 @@ export default {
     connection.searchParams.set("options", `-c search_path=\"${env.PREVIEW_SCHEMA}\",public`);
     const pool = new pg.Pool({ connectionString: connection.toString(), max: 2 });
     const service = createSafetyService(pool, data => digest(env.SAFETY_SIGNING_KEY, data));
-    const api = createApi(service, authenticateWith(pool));
+    const api = createApi(service, authenticateWith(pool), env.WEB_ORIGIN);
     return api.fetch(request, env);
   },
 };

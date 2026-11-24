@@ -58,6 +58,7 @@ jobs:
           sed "s/00000000000000000000000000000000/${HYPERDRIVE_ID}/" wrangler.toml.example \
             | sed "s/ya-plouf-api-preview/ya-plouf-api-pr-${{ github.event.pull_request.number }}/" \
             | sed "s/preview_pr_0/preview_pr_${{ github.event.pull_request.number }}/" \
+            | sed "s#https://pr-0\.ya-plouf\.pages\.dev#https://pr-${{ github.event.pull_request.number }}.ya-plouf.pages.dev#" \
             > wrangler.preview.toml
       - name: Déployer l’API Worker
         run: |
@@ -124,6 +125,7 @@ jobs:
           sed "s/00000000000000000000000000000000/${HYPERDRIVE_ID}/" wrangler.toml.example \
             | sed "s/ya-plouf-api-preview/ya-plouf-api-pr-${{ github.event.pull_request.number }}/" \
             | sed "s/preview_pr_0/preview_pr_${{ github.event.pull_request.number }}/" \
+            | sed "s#https://pr-0\.ya-plouf\.pages\.dev#https://pr-${{ github.event.pull_request.number }}.ya-plouf.pages.dev#" \
             > wrangler.preview.toml
           npx wrangler@4 delete --config wrangler.preview.toml --force
       - name: Supprimer le déploiement Pages de la preview

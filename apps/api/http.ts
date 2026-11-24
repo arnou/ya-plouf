@@ -1,16 +1,24 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { cors } from "hono/cors";
 import { SafetyError } from "../../packages/application/safety-sheets.ts";
 import type { safetySheets } from "../../packages/application/safety-sheets.ts";
 import { mutationSchema, uuid } from "../../packages/contracts/safety-sheet.ts";
 
 type Auth = (token: string) => Promise<string | null>;
 
-export function createApi(service: ReturnType<typeof safetySheets>, authenticate: Auth) {
+export function createApi(service: ReturnType<typeof safetySheets>, authenticate: Auth, webOrigin?: string) {
   const api = new Hono<{ Variables: { actorId: string } }>();
   const root = "/api/sorties/:outingId/feuille-securite";
 
   api.get("/api/health", c => c.json({ status: "ok" }));
+  if (webOrigin) {
+    api.use("/api/*", cors({
+      origin: webOrigin,
+      allowHeaders: ["Authorization", "Content-Type", "Idempotency-Key"],
+      allowMethods: ["GET", "POST", "OPTIONS"],
+    }));
+  }
   api.use("/api/sorties/*", async (c, next) => {
     c.header("Cache-Control", "no-store");
     const authorization = c.req.header("Authorization");
