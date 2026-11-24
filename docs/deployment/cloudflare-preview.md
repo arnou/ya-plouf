@@ -30,7 +30,8 @@ séparation par schéma permet plusieurs PR sans créer un projet Supabase par P
    - `PREVIEW_SAFETY_SIGNING_KEY`
    - `CLOUDFLARE_ACCOUNT_ID`
    - `CLOUDFLARE_API_TOKEN`
-   - `CLOUDFLARE_WORKERS_SUBDOMAIN`
+   - `CLOUDFLARE_WORKERS_SUBDOMAIN` : uniquement le sous-domaine Workers de
+     votre compte, par exemple `mon-club`, sans `https://` ni `.workers.dev`
 
 Le jeton Cloudflare doit seulement disposer des permissions nécessaires à
 Workers, Pages et Hyperdrive. Aucun secret ne doit être disponible pour une PR

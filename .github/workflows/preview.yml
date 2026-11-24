@@ -64,6 +64,12 @@ jobs:
             | sed "s/preview_pr_0/preview_pr_${{ github.event.pull_request.number }}/" \
             | sed "s#https://pr-0\.ya-plouf\.pages\.dev#https://pr-${{ github.event.pull_request.number }}.ya-plouf.pages.dev#" \
             > wrangler.preview.toml
+      - name: Vérifier le sous-domaine Workers
+        run: |
+          if [ -z "$WORKERS_SUBDOMAIN" ]; then
+            echo "CLOUDFLARE_WORKERS_SUBDOMAIN est vide. Renseigner uniquement le sous-domaine workers.dev, sans https:// ni suffixe .workers.dev."
+            exit 1
+          fi
       - name: Déployer l’API Worker
         run: |
           printf '%s' "$SAFETY_SIGNING_KEY" | npx wrangler@4 secret put SAFETY_SIGNING_KEY --config wrangler.preview.toml
