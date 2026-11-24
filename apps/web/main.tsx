@@ -8,6 +8,7 @@ import "./style.css";
 type Access = { outing: string; token: string };
 type Submission = { action: Action; token: string; key: string };
 type Member = { id: string; firstName: string; lastName: string };
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined ?? "").replace(/\/$/, "");
 
 const errors: Record<string, string> = {
   unauthenticated: "Jeton invalide ou expiré.",
@@ -43,7 +44,7 @@ class RequestError extends Error {
 }
 
 async function request<T>(access: Access, options?: RequestInit, suffix = ""): Promise<T> {
-  const response = await fetch(`/api/sorties/${encodeURIComponent(access.outing)}/feuille-securite${suffix}`, {
+  const response = await fetch(`${apiBaseUrl}/api/sorties/${encodeURIComponent(access.outing)}/feuille-securite${suffix}`, {
     ...options,
     headers: { Authorization: `Bearer ${access.token}`, ...options?.headers },
   });

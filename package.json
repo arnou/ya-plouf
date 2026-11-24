@@ -17,7 +17,8 @@
     "start": "node --experimental-strip-types apps/api/node.ts",
     "dev:web": "vite apps/web",
     "migrate": "node --experimental-strip-types scripts/migrate.ts",
-    "demo": "node --experimental-strip-types scripts/demo.ts"
+    "demo": "node --experimental-strip-types scripts/demo.ts",
+    "preview:database": "node --experimental-strip-types scripts/preview-database.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.0",

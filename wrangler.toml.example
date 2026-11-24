@@ -1,0 +1,15 @@
+name = "ya-plouf-api-preview"
+main = "apps/api/worker.ts"
+compatibility_date = "2026-11-19"
+compatibility_flags = ["nodejs_compat"]
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+# Renseigner l'identifiant Hyperdrive du projet Supabase de recette.
+id = "00000000000000000000000000000000"
+
+[vars]
+PREVIEW_SCHEMA = "preview_pr_0"
+WEB_ORIGIN = "https://pr-0.ya-plouf.pages.dev"
+
+# SAFETY_SIGNING_KEY doit être ajouté avec `wrangler secret put`.

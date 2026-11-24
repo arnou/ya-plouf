@@ -1,14 +1,14 @@
-CREATE TABLE app_user (
+CREATE TABLE IF NOT EXISTS app_user (
   id uuid PRIMARY KEY
 );
 
-CREATE TABLE app_session (
+CREATE TABLE IF NOT EXISTS app_session (
   token_digest text PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES app_user(id),
   expires_at timestamptz NOT NULL
 );
 
-CREATE TABLE member (
+CREATE TABLE IF NOT EXISTS member (
   id uuid PRIMARY KEY,
   first_name text NOT NULL,
   last_name text NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE member (
   last_caci date
 );
 
-CREATE TABLE outing (
+CREATE TABLE IF NOT EXISTS outing (
   id uuid PRIMARY KEY,
   director_id uuid NOT NULL REFERENCES app_user(id),
   status text NOT NULL CHECK (status IN ('draft','published','closed','preparing','in_progress','completed','archived','cancelled')),
@@ -25,7 +25,7 @@ CREATE TABLE outing (
   reserved_device_id uuid
 );
 
-CREATE TABLE outing_registration (
+CREATE TABLE IF NOT EXISTS outing_registration (
   id uuid PRIMARY KEY,
   outing_id uuid NOT NULL REFERENCES outing(id),
   member_id uuid NOT NULL REFERENCES member(id),
@@ -34,12 +34,12 @@ CREATE TABLE outing_registration (
   UNIQUE (outing_id, id, member_id)
 );
 
-CREATE TABLE safety_sheet (
+CREATE TABLE IF NOT EXISTS safety_sheet (
   outing_id uuid PRIMARY KEY REFERENCES outing(id),
   revision integer NOT NULL CHECK (revision > 0)
 );
 
-CREATE TABLE safety_participant (
+CREATE TABLE IF NOT EXISTS safety_participant (
   id uuid PRIMARY KEY,
   outing_id uuid NOT NULL REFERENCES safety_sheet(outing_id),
   member_id uuid REFERENCES member(id),
@@ -55,14 +55,14 @@ CREATE TABLE safety_participant (
   CHECK (member_id IS NOT NULL OR registration_id IS NULL)
 );
 
-CREATE TABLE safety_snapshot (
+CREATE TABLE IF NOT EXISTS safety_snapshot (
   participant_id uuid NOT NULL REFERENCES safety_participant(id),
   number integer NOT NULL CHECK (number > 0),
   contents jsonb NOT NULL,
   PRIMARY KEY (participant_id, number)
 );
 
-CREATE TABLE safety_mutation (
+CREATE TABLE IF NOT EXISTS safety_mutation (
   outing_id uuid NOT NULL REFERENCES safety_sheet(outing_id),
   revision integer NOT NULL,
   actor_id uuid NOT NULL REFERENCES app_user(id),

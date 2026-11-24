@@ -1,0 +1,175 @@
+name: Preview Cloudflare
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    needs: checks
+    if: >-
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      HYPERDRIVE_ID: ${{ secrets.PREVIEW_HYPERDRIVE_ID }}
+      WORKERS_SUBDOMAIN: ${{ secrets.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+      SAFETY_SIGNING_KEY: ${{ secrets.PREVIEW_SAFETY_SIGNING_KEY }}
+      PAGES_PROJECT: ya-plouf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: npm
+      - run: npm ci
+      - name: Provisionner le schéma PostgreSQL de la PR
+        run: npm run preview:database -- provision ${{ github.event.pull_request.number }}
+      - name: Charger les données fictives
+        run: npm run demo
+        env:
+          PREVIEW_SCHEMA: preview_pr_${{ github.event.pull_request.number }}
+      - name: Vérifier l’idempotence et l’isolation PostgreSQL
+        run: npm test
+        env:
+          TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+      - name: Générer la configuration Wrangler de la preview
+        run: |
+          sed "s/00000000000000000000000000000000/${HYPERDRIVE_ID}/" wrangler.toml.example \
+            | sed "s/ya-plouf-api-preview/ya-plouf-api-pr-${{ github.event.pull_request.number }}/" \
+            | sed "s/preview_pr_0/preview_pr_${{ github.event.pull_request.number }}/" \
+            | sed "s#https://pr-0\.ya-plouf\.pages\.dev#https://pr-${{ github.event.pull_request.number }}.ya-plouf.pages.dev#" \
+            > wrangler.preview.toml
+      - name: Vérifier le sous-domaine Workers
+        run: |
+          if [ -z "$WORKERS_SUBDOMAIN" ]; then
+            echo "CLOUDFLARE_WORKERS_SUBDOMAIN est vide. Renseigner uniquement le sous-domaine workers.dev, sans https:// ni suffixe .workers.dev."
+            exit 1
+          fi
+      - name: Construire le frontend avec l’URL de l’API
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://ya-plouf-api-pr-${{ github.event.pull_request.number }}.${{ env.WORKERS_SUBDOMAIN }}.workers.dev
+      - name: Créer le projet Cloudflare Pages si nécessaire
+        run: |
+          output=$(mktemp)
+          set +e
+          npx wrangler@4 pages project create "$PAGES_PROJECT" --production-branch main 2>&1 | tee "$output"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ] && ! grep -Eqi "already exists|already been created|project exists" "$output"; then
+            echo "La création du projet Pages a échoué pour une raison autre que son existence préalable."
+            exit "$status"
+          fi
+      - name: Déployer le frontend Pages
+        id: pages
+        run: |
+          output=$(mktemp)
+          npx wrangler@4 pages deploy apps/web/dist --project-name "$PAGES_PROJECT" --branch pr-${{ github.event.pull_request.number }} 2>&1 | tee "$output"
+          pages_url=$(grep -Eo 'https://[A-Za-z0-9.-]+\.pages\.dev' "$output" | tail -n 1)
+          if [ -z "$pages_url" ]; then
+            echo "Impossible de récupérer l’URL du déploiement Pages dans la sortie Wrangler."
+            exit 1
+          fi
+          echo "url=$pages_url" >> "$GITHUB_OUTPUT"
+      - name: Déployer l’API Worker avec l’origine Pages réelle
+        run: |
+          sed -i "s#https://pr-${{ github.event.pull_request.number }}\.ya-plouf\.pages\.dev#${{ steps.pages.outputs.url }}#" wrangler.preview.toml
+          printf '%s' "$SAFETY_SIGNING_KEY" | npx wrangler@4 secret put SAFETY_SIGNING_KEY --config wrangler.preview.toml
+          npx wrangler@4 deploy --config wrangler.preview.toml
+      - name: Vérifier la santé de l’API
+        run: curl --fail --retry 5 --retry-delay 3 https://ya-plouf-api-pr-${{ github.event.pull_request.number }}.${WORKERS_SUBDOMAIN}.workers.dev/api/health
+      - name: Vérifier la preview frontend
+        run: curl --fail --retry 5 --retry-delay 3 "${{ steps.pages.outputs.url }}"
+      - name: Publier les URL de recette
+        uses: actions/github-script@v7
+        env:
+          PAGES_PREVIEW_URL: ${{ steps.pages.outputs.url }}
+        with:
+          script: |
+            const body = [
+              '<!-- ya-plouf-cloudflare-preview -->',
+              '### Preview Cloudflare',
+              '',
+              `API : https://ya-plouf-api-pr-${context.issue.number}.${process.env.WORKERS_SUBDOMAIN}.workers.dev`,
+              `Frontend : ${process.env.PAGES_PREVIEW_URL}`,
+              '',
+              'Base : schéma Supabase dédié à cette PR.',
+            ].join('\n');
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const previous = comments.find(comment => comment.body?.includes('<!-- ya-plouf-cloudflare-preview -->'));
+            const params = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            };
+            if (previous) {
+              await github.rest.issues.updateComment({ ...params, comment_id: previous.id });
+            } else {
+              await github.rest.issues.createComment(params);
+            }
+
+  cleanup:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      HYPERDRIVE_ID: ${{ secrets.PREVIEW_HYPERDRIVE_ID }}
+      PAGES_PROJECT: ya-plouf
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.19.0
+          cache: npm
+      - run: npm ci
+      - name: Supprimer le schéma PostgreSQL de la PR
+        run: npm run preview:database -- cleanup ${{ github.event.pull_request.number }}
+      - name: Supprimer le Worker de la preview
+        run: |
+          sed "s/00000000000000000000000000000000/${HYPERDRIVE_ID}/" wrangler.toml.example \
+            | sed "s/ya-plouf-api-preview/ya-plouf-api-pr-${{ github.event.pull_request.number }}/" \
+            | sed "s/preview_pr_0/preview_pr_${{ github.event.pull_request.number }}/" \
+            | sed "s#https://pr-0\.ya-plouf\.pages\.dev#https://pr-${{ github.event.pull_request.number }}.ya-plouf.pages.dev#" \
+            > wrangler.preview.toml
+          npx wrangler@4 delete --config wrangler.preview.toml --force
+      - name: Supprimer le déploiement Pages de la preview
+        run: |
+          deployment_id=$(npx wrangler@4 pages deployment list --project-name "$PAGES_PROJECT" --json \
+            | jq -r --arg alias "pr-${{ github.event.pull_request.number }}.ya-plouf.pages.dev" \
+              '.[] | select(((.url // "") | contains($alias)) or any((.aliases // [])[]; contains($alias))) | .id' | head -n 1)
+          if [ -n "$deployment_id" ] && [ "$deployment_id" != "null" ]; then
+            npx wrangler@4 pages deployment delete "$deployment_id" --project-name "$PAGES_PROJECT" --force
+          fi

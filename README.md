@@ -38,6 +38,7 @@ Le domaine TypeScript contient les règles métier. Les cas d’usage s’appuie
 
 - [Cahier des charges](docs/README.md)
 - [Architecture cible](docs/architecture/README.md)
+- [Previews Cloudflare par pull request](docs/deployment/cloudflare-preview.md)
 - [Parcours de préparation de la feuille de sécurité](docs/functional/03-securite-hors-ligne.md)
 - [Décisions ouvertes](docs/DECISIONS_OUVERTES.md)
 - [Feuille de route](docs/ROADMAP.md)
