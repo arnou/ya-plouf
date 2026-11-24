@@ -21,7 +21,8 @@ séparation par schéma permet plusieurs PR sans créer un projet Supabase par P
 
 1. Créer un projet Supabase dédié à la recette et récupérer une URL PostgreSQL.
 2. Créer une configuration Hyperdrive pointant vers cette URL.
-3. Créer un projet Cloudflare Pages nommé `ya-plouf`.
+3. Le workflow crée automatiquement, si nécessaire, un projet Cloudflare Pages
+   nommé `ya-plouf` dans le compte ciblé.
 4. Configurer Cloudflare Access devant les URLs Pages et Workers.
 5. Ajouter les secrets suivants au dépôt GitHub :
 
