@@ -17,6 +17,13 @@
 - Accès au formulaire public protégé contre usurpation, spam et divulgation d'inscriptions.
 - Les jetons OAuth Google et les clés d'envoi de courriels ne doivent jamais être exposés au navigateur ou au dépôt.
 
+## Socle actuellement implémenté
+
+- Les sessions utilisent un jeton opaque transmis en `Bearer` ; seul son condensat SHA-256 est stocké et une session expirée est refusée.
+- Les rôles persistés sont multiples par utilisateur : `admin`, `responsible`, `dp` et `member`.
+- L'API vérifie le rôle avant d'exécuter une opération de feuille de sécurité. Les rôles `dp` et `admin` peuvent atteindre cette ressource, puis le service vérifie que l'acteur est le DP désigné de la sortie.
+- La migration des rôles conserve les comptes existants et attribue `dp` aux utilisateurs déjà désignés comme directeurs d'une sortie.
+
 ## À valider avant production
 
 Politique de confidentialité, base légale et information des personnes, conservation des documents, obligations réglementaires exactes des feuilles de sécurité, rôles de responsable de traitement/sous-traitant, politique d'accès aux données médicales et procédure de reprise d'un appareil DP perdu.

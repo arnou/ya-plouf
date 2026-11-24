@@ -27,6 +27,7 @@ try {
     console.log("Nouveau jeton DP valable 8 h", token);
   } else {
     await client.query("INSERT INTO app_user (id) VALUES ($1)", [userId]);
+    await client.query("INSERT INTO app_user_role (user_id, role) VALUES ($1, 'dp')", [userId]);
     await client.query("INSERT INTO app_session VALUES ($1, $2, now() + interval '8 hours')", [
       createHash("sha256").update(token).digest("hex"), userId,
     ]);

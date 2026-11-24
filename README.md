@@ -19,6 +19,8 @@ Le DP peut prévisualiser les inscrits confirmés, initialiser la feuille alors 
 
 Les comptes et sorties de ce parcours sont fournis par la démonstration. L’administration des comptes, l’inscription publique, la réservation et la synchronisation hors ligne, l’export réglementaire et les finances restent à réaliser. Utiliser uniquement des données fictives avec ce socle local.
 
+Les sessions sont représentées par des jetons opaques dont seul le condensat est stocké en base, avec une date d’expiration obligatoire. Les rôles persistés sont `admin`, `responsible`, `dp` et `member`. L’API contrôle le rôle côté serveur : les opérations de feuille de sécurité sont réservées aux rôles `dp` et `admin`, puis vérifient que l’utilisateur est le DP désigné pour la sortie.
+
 ## Développer
 
 Avec Node.js 22.19 ou supérieur et PostgreSQL, définir `DATABASE_URL` et `SAFETY_SIGNING_KEY` dans l’environnement du serveur.
