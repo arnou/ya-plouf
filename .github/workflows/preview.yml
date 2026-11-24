@@ -71,12 +71,6 @@ jobs:
             echo "CLOUDFLARE_WORKERS_SUBDOMAIN est vide. Renseigner uniquement le sous-domaine workers.dev, sans https:// ni suffixe .workers.dev."
             exit 1
           fi
-      - name: Déployer l’API Worker
-        run: |
-          printf '%s' "$SAFETY_SIGNING_KEY" | npx wrangler@4 secret put SAFETY_SIGNING_KEY --config wrangler.preview.toml
-          npx wrangler@4 deploy --config wrangler.preview.toml
-      - name: Vérifier la santé de l’API
-        run: curl --fail --retry 5 --retry-delay 3 https://ya-plouf-api-pr-${{ github.event.pull_request.number }}.${WORKERS_SUBDOMAIN}.workers.dev/api/health
       - name: Construire le frontend avec l’URL de l’API
         run: npm run build
         env:
@@ -88,9 +82,29 @@ jobs:
             npx wrangler@4 pages project create "$PAGES_PROJECT" --production-branch main
           fi
       - name: Déployer le frontend Pages
-        run: npx wrangler@4 pages deploy apps/web/dist --project-name "$PAGES_PROJECT" --branch pr-${{ github.event.pull_request.number }}
+        id: pages
+        run: |
+          output=$(mktemp)
+          npx wrangler@4 pages deploy apps/web/dist --project-name "$PAGES_PROJECT" --branch pr-${{ github.event.pull_request.number }} 2>&1 | tee "$output"
+          pages_url=$(grep -Eo 'https://[A-Za-z0-9.-]+\.pages\.dev' "$output" | tail -n 1)
+          if [ -z "$pages_url" ]; then
+            echo "Impossible de récupérer l’URL du déploiement Pages dans la sortie Wrangler."
+            exit 1
+          fi
+          echo "url=$pages_url" >> "$GITHUB_OUTPUT"
+      - name: Déployer l’API Worker avec l’origine Pages réelle
+        run: |
+          sed -i "s#https://pr-${{ github.event.pull_request.number }}\.ya-plouf\.pages\.dev#${{ steps.pages.outputs.url }}#" wrangler.preview.toml
+          printf '%s' "$SAFETY_SIGNING_KEY" | npx wrangler@4 secret put SAFETY_SIGNING_KEY --config wrangler.preview.toml
+          npx wrangler@4 deploy --config wrangler.preview.toml
+      - name: Vérifier la santé de l’API
+        run: curl --fail --retry 5 --retry-delay 3 https://ya-plouf-api-pr-${{ github.event.pull_request.number }}.${WORKERS_SUBDOMAIN}.workers.dev/api/health
+      - name: Vérifier la preview frontend
+        run: curl --fail --retry 5 --retry-delay 3 "${{ steps.pages.outputs.url }}"
       - name: Publier les URL de recette
         uses: actions/github-script@v7
+        env:
+          PAGES_PREVIEW_URL: ${{ steps.pages.outputs.url }}
         with:
           script: |
             const body = [
@@ -98,7 +112,7 @@ jobs:
               '### Preview Cloudflare',
               '',
               `API : https://ya-plouf-api-pr-${context.issue.number}.${process.env.WORKERS_SUBDOMAIN}.workers.dev`,
-              `Frontend : https://pr-${context.issue.number}.ya-plouf.pages.dev`,
+              `Frontend : ${process.env.PAGES_PREVIEW_URL}`,
               '',
               'Base : schéma Supabase dédié à cette PR.',
             ].join('\n');
@@ -149,7 +163,8 @@ jobs:
       - name: Supprimer le déploiement Pages de la preview
         run: |
           deployment_id=$(npx wrangler@4 pages deployment list --project-name "$PAGES_PROJECT" --json \
-            | jq -r '.[] | select(.url | contains("pr-${{ github.event.pull_request.number }}")) | .id' | head -n 1)
+            | jq -r --arg alias "pr-${{ github.event.pull_request.number }}.ya-plouf.pages.dev" \
+              '.[] | select(((.url // "") | contains($alias)) or any((.aliases // [])[]; contains($alias))) | .id' | head -n 1)
           if [ -n "$deployment_id" ] && [ "$deployment_id" != "null" ]; then
             npx wrangler@4 pages deployment delete "$deployment_id" --project-name "$PAGES_PROJECT" --force
           fi

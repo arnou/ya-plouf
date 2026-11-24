@@ -41,8 +41,9 @@ provenant d’un dépôt externe.
 ## Fonctionnement
 
 Le workflow `.github/workflows/preview.yml` exécute les contrôles, crée le
-schéma PostgreSQL, déploie l’API et le frontend, puis publie les URLs dans la
-PR. Le provisionnement enregistre chaque fichier de migration dans la table
+schéma PostgreSQL, déploie le frontend puis l’API avec l’origine Pages réelle,
+et publie l’URL retournée par Wrangler dans la PR. Le provisionnement
+enregistre chaque fichier de migration dans la table
 `schema_migration` du schéma concerné : un nouveau commit réutilise donc le
 même schéma sans rejouer les migrations déjà appliquées. Un nouveau commit
 réutilise le même schéma et met à jour les déploiements.
