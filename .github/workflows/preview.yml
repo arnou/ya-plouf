@@ -77,9 +77,14 @@ jobs:
           VITE_API_BASE_URL: https://ya-plouf-api-pr-${{ github.event.pull_request.number }}.${{ env.WORKERS_SUBDOMAIN }}.workers.dev
       - name: Créer le projet Cloudflare Pages si nécessaire
         run: |
-          projects=$(npx wrangler@4 pages project list --json)
-          if ! printf '%s' "$projects" | jq -e --arg name "$PAGES_PROJECT" 'any(.[]; .name == $name)' >/dev/null; then
-            npx wrangler@4 pages project create "$PAGES_PROJECT" --production-branch main
+          output=$(mktemp)
+          set +e
+          npx wrangler@4 pages project create "$PAGES_PROJECT" --production-branch main 2>&1 | tee "$output"
+          status=${PIPESTATUS[0]}
+          set -e
+          if [ "$status" -ne 0 ] && ! grep -Eqi "already exists|already been created|project exists" "$output"; then
+            echo "La création du projet Pages a échoué pour une raison autre que son existence préalable."
+            exit "$status"
           fi
       - name: Déployer le frontend Pages
         id: pages
