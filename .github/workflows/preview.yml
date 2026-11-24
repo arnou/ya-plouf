@@ -53,6 +53,10 @@ jobs:
         run: npm run demo
         env:
           PREVIEW_SCHEMA: preview_pr_${{ github.event.pull_request.number }}
+      - name: Vérifier l’idempotence et l’isolation PostgreSQL
+        run: npm test
+        env:
+          TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
       - name: Générer la configuration Wrangler de la preview
         run: |
           sed "s/00000000000000000000000000000000/${HYPERDRIVE_ID}/" wrangler.toml.example \
