@@ -3,9 +3,10 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { SafetyError } from "../../packages/application/safety-sheets.ts";
 import type { safetySheets } from "../../packages/application/safety-sheets.ts";
+import type { AuthenticatedActor } from "./service.ts";
 import { mutationSchema, uuid } from "../../packages/contracts/safety-sheet.ts";
 
-type Auth = (token: string) => Promise<string | null>;
+type Auth = (token: string) => Promise<AuthenticatedActor | null>;
 
 export function createApi(service: ReturnType<typeof safetySheets>, authenticate: Auth, webOrigin?: string) {
   const api = new Hono<{ Variables: { actorId: string } }>();
@@ -23,9 +24,12 @@ export function createApi(service: ReturnType<typeof safetySheets>, authenticate
     c.header("Cache-Control", "no-store");
     const authorization = c.req.header("Authorization");
     const token = authorization?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
-    const actorId = token ? await authenticate(token) : null;
-    if (!actorId) return c.json({ error: "unauthenticated" }, 401);
-    c.set("actorId", actorId);
+    const actor = token ? await authenticate(token) : null;
+    if (!actor) return c.json({ error: "unauthenticated" }, 401);
+    if (!actor.roles.includes("dp") && !actor.roles.includes("admin")) {
+      return c.json({ error: "forbidden" }, 403);
+    }
+    c.set("actorId", actor.id);
     return next();
   });
 

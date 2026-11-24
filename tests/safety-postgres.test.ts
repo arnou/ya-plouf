@@ -19,12 +19,14 @@ test("parcours #13 via HTTP et PostgreSQL", { skip: !process.env.TEST_DATABASE_U
     await db.end();
   });
   await pool.query(await readFile(new URL("../migrations/001_safety_sheet.sql", import.meta.url), "utf8"));
+  await pool.query(await readFile(new URL("../migrations/002_user_roles.sql", import.meta.url), "utf8"));
 
   const [director, other, outing, emptyOuting, draftOuting, member, waitlisted, cancelled, late, manual, registration, lateRegistration]
     = Array.from({ length: 12 }, randomUUID);
   const directorToken = "d".repeat(43);
   const otherToken = "o".repeat(43);
   await pool.query("INSERT INTO app_user VALUES ($1), ($2)", [director, other]);
+  await pool.query("INSERT INTO app_user_role (user_id, role) VALUES ($1, 'dp'), ($2, 'member')", [director, other]);
   await pool.query(`INSERT INTO outing VALUES
     ($1, $4, 'published', '2030-06-01'),
     ($2, $4, 'published', '2030-06-01'),
@@ -44,7 +46,9 @@ test("parcours #13 via HTTP et PostgreSQL", { skip: !process.env.TEST_DATABASE_U
     id: randomUUID,
     digest: async data => createHash("sha256").update(JSON.stringify(data)).digest("hex"),
   });
-  const api = createApi(service, async token => token === directorToken ? director : token === otherToken ? other : null);
+  const api = createApi(service, async token => token === directorToken
+    ? { id: director, roles: ["dp"] }
+    : token === otherToken ? { id: other, roles: ["member"] } : null);
   const path = (id: string) => `/api/sorties/${id}/feuille-securite`;
   const get = (id = outing, token = directorToken) => api.request(path(id), { headers: { Authorization: `Bearer ${token}` } });
   async function view(id = outing) {
